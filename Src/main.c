@@ -41,7 +41,10 @@ void change_access_level_unpriv(void)
 int main(void)
 {
 	printf("In thread mode : before interrupt\n");
-	change_access_level_unpriv();
+	void (*fun_ptr)(void);
+  /* This shall cause system exception because the T-bit(last bit is 0) */
+	/* fun_ptr = (void *) 0x800021c; */ 
+	fun_ptr();
 	generate_interrupt();
 
 	printf("In thread mode : after interrupt\n");
