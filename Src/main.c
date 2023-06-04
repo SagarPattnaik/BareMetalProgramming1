@@ -28,11 +28,20 @@ void generate_interrupt()
 
 }
 
+void change_access_level_unpriv(void)
+{
+  // Read from CONTROL register into R0
+  __asm volatile ("MRS R0, CONTROL");
+  // Modify value of R0
+  __asm volatile ("ORR R0, R0, #0x01");
+  // Write modified value of R0 into CONTROL register
+  __asm volatile ("MSR CONTROL, R0");
+}
 /* This function executes in THREAD MODE of the processor */
 int main(void)
 {
 	printf("In thread mode : before interrupt\n");
-
+	change_access_level_unpriv();
 	generate_interrupt();
 
 	printf("In thread mode : after interrupt\n");
@@ -46,3 +55,8 @@ void RTC_WKUP_IRQHandler(void)
 	printf("In handler mode : ISR\n");
 }
 
+void HardFault_Handler(void)
+{
+	printf("Hard fault detected\n");
+	while(1);
+}
