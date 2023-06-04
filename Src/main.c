@@ -14,48 +14,58 @@
 #include<stdio.h>
 #include<stdint.h>
 
-/* This function executes in THREAD MODE of the processor */
-void generate_interrupt()
+#define SRAM_START      0x20000000U
+#define SRAM_SIZE       (128 * 1024) /* SRAM size is 128K */
+#define SRAM_END        (SRAM_START + SRAM_SIZE)
+#define STACK_START     SRAM_END
+
+#define STACK_MSP_START STACK_START
+#define STACK_MSP_END   (STACK_MSP_START - 512) /* 512 bytes allocated to MSP */
+#define STACK_PSP_START STACK_MSP_END
+
+int fun_add(int a, int b , int c , int d)
 {
-	uint32_t *pSTIR  = (uint32_t*)0xE000EF00;
-	uint32_t *pISER0 = (uint32_t*)0xE000E100;
-
-	//enable IRQ3 interrupt
-	*pISER0 |= ( 1 << 3);
-
-	//generate an interrupt from software for IRQ3
-	*pSTIR = (3 & 0x1FF);
-
+	return a+b+c+d;
 }
 
-void change_access_level_unpriv(void)
+/* This function changes SP to PSP */
+__attribute__((naked)) void change_sp_to_psp(void)
 {
-  // Read from CONTROL register into R0
-  __asm volatile ("MRS R0, CONTROL");
-  // Modify value of R0
-  __asm volatile ("ORR R0, R0, #0x01");
-  // Write modified value of R0 into CONTROL register
+  /* assign PSP address */
+  __asm volatile (".equ SRAM_END, (0x20000000+(128*1024))");
+  __asm volatile (".equ PSP_START, (SRAM_END-512)");
+  __asm volatile ("LDR R0, =PSP_START");
+  __asm volatile ("MSR PSP, R0");
+  __asm volatile ("MOV R0, #0x02");
   __asm volatile ("MSR CONTROL, R0");
+  __asm volatile ("BX LR");
 }
+
+/* This function executes in THREAD MODE of the processor */
+void generate_exception()
+{
+	/* execute SVC instruction to cause SVC exception */
+	__asm volatile("SVC #0X2");
+
+}
+
 /* This function executes in THREAD MODE of the processor */
 int main(void)
 {
-	printf("In thread mode : before interrupt\n");
-	void (*fun_ptr)(void);
-  /* This shall cause system exception because the T-bit(last bit is 0) */
-	/* fun_ptr = (void *) 0x800021c; */ 
-	fun_ptr();
-	generate_interrupt();
-
-	printf("In thread mode : after interrupt\n");
+	change_sp_to_psp();
+  int ret;
+  ret = fun_add(1,3,34,5);
+  printf("results = %d\n", ret);
+	generate_exception();
 
 	for(;;);
 }
 
 /* This function(ISR) executes in HANDLER MODE of the processor */
-void RTC_WKUP_IRQHandler(void)
+
+void SVC_Handler(void)
 {
-	printf("In handler mode : ISR\n");
+	printf(" in SVC_Handler\n");
 }
 
 void HardFault_Handler(void)
