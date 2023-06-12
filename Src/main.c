@@ -31,6 +31,12 @@ void generate_interrupt()
 /* This function executes in THREAD MODE of the processor */
 int main(void)
 {
+  int control_reg = 0x02;
+  uint32_t psp_value = 0x20008000;
+
+  __asm volatile ("msr PSP, %0"::"r"(psp_value));
+  __asm volatile ("msr CONTROL, %0"::"r"(control_reg));
+  
 	printf("In thread mode : before interrupt\n");
 
 	generate_interrupt();
