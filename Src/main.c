@@ -15,40 +15,53 @@
 #include<stdint.h>
 
 /* This function executes in THREAD MODE of the processor */
-void generate_interrupt()
-{
-	uint32_t *pSTIR  = (uint32_t*)0xE000EF00;
-	uint32_t *pISER0 = (uint32_t*)0xE000E100;
-
-	//enable IRQ3 interrupt
-	*pISER0 |= ( 1 << 3);
-
-	//generate an interrupt from software for IRQ3
-	*pSTIR = (3 & 0x1FF);
-
-}
-
-/* This function executes in THREAD MODE of the processor */
 int main(void)
 {
-  int control_reg = 0x02;
-  uint32_t psp_value = 0x20008000;
+  /* 1. Enable all configurable system exceptions:
+    Usage Fault, Mem manage fault and Bus fault */
+  uint32_t *pSHCSR = (uint32_t *)0xE000ED24;
+  *pSHCSR |= (1 << 16); /* Mem manage Fault */
+  *pSHCSR |= (1 << 17); /* Bus Fault */
+  *pSHCSR |= (1 << 18); /* Usage Fault */
 
-  __asm volatile ("msr PSP, %0"::"r"(psp_value));
-  __asm volatile ("msr CONTROL, %0"::"r"(control_reg));
-  
-	printf("In thread mode : before interrupt\n");
+  /* 3. Lets force the processor to execute some undefined instruction */
+  uint32_t *pSRAM = (uint32_t *)0x20010000;
+  *pSRAM = 0xFFFFFFFF; /* Undefined instruction */
+  /* Create a function pointer variable */
+  void (* some_address)(void);
 
-	generate_interrupt();
+  some_address = (void *)0x20010001;
+  some_address();
 
-	printf("In thread mode : after interrupt\n");
+  /* 4. Analyze the Fault */
 
 	for(;;);
 }
 
-/* This function(ISR) executes in HANDLER MODE of the processor */
-void RTC_WKUP_IRQHandler(void)
+/* 2. implement the fault handlers */
+void HardFault_Handler(void)
 {
-	printf("In handler mode : ISR\n");
+	printf("Exception : Hardfault\n");
+	while(1);
 }
 
+
+void MemManage_Handler(void)
+{
+	printf("Exception : MemManage\n");
+	while(1);
+}
+
+void BusFault_Handler(void)
+{
+	printf("Exception : BusFault\n");
+	while(1);
+}
+
+void UsageFault_Handler(void)
+{
+  uint32_t *pUFSR = (uint32_t *)0xE000ED2A;
+	printf("Exception : UsageFault\n");
+	printf("UsageFaultStatusRegister = %lx\n", *pUFSR);
+	while(1);
+}
