@@ -24,62 +24,38 @@ int main(void)
   *pSHCSR |= (1 << 17); /* Bus Fault */
   *pSHCSR |= (1 << 18); /* Usage Fault */
 
-  /* 3. Lets force the processor to execute some undefined instruction */
-  uint32_t *pSRAM = (uint32_t *)0x20010000;
-  *pSRAM = 0xFFFFFFFF; /* Undefined instruction */
-  /* Create a function pointer variable */
-  void (* some_address)(void);
+  /* 2. Lets force the processor to execute SVC exception */
+  __asm volatile ("SVC #25");
+  uint32_t data = 0;
 
-  some_address = (void *)0x20010001;
-  some_address();
-
-  /* 4. Analyze the Fault */
+  __asm volatile ("MOV %0, R0": "=r"(data) ::);
+  printf("data = %ld\n", data);
 
 	for(;;);
 }
 
-/* 2. implement the fault handlers */
-void HardFault_Handler(void)
-{
-	printf("Exception : Hardfault\n");
-	while(1);
-}
+/* 2. implement the SVC handlers */
 
-
-void MemManage_Handler(void)
-{
-	printf("Exception : MemManage\n");
-	while(1);
-}
-
-void BusFault_Handler(void)
-{
-	printf("Exception : BusFault\n");
-	while(1);
-}
-
-__attribute__ ((naked)) void UsageFault_Handler(void)
+__attribute__ ((naked)) void SVC_Handler(void)
 {
 	//here we extracted the value of MSP which happens to be the
 	//base address of the stack frame(thread mode) which got saved during the exception entry
 	//from thread mode to handler mode
 	__asm ("MRS r0,MSP");
-	__asm ("B UsageFault_Handler_c");
+	__asm ("B SVC_Handler_c");
 }
 
-void UsageFault_Handler_c(uint32_t *pBaseStackFrame)
+void SVC_Handler_c(uint32_t *pBaseStackFrame)
 {
-	uint32_t *pUFSR = (uint32_t*)0xE000ED2A;
-	printf("Exception : UsageFault\n");
-	printf("UFSR = %lx\n",(*pUFSR) & 0xFFFF);
-	printf("pBaseStackFrame = %p\n",pBaseStackFrame);
-	printf("Value of R0 = %lx\n", pBaseStackFrame[0]);
-	printf("Value of R1 = %lx\n", pBaseStackFrame[1]);
-	printf("Value of R2 = %lx\n", pBaseStackFrame[2]);
-	printf("Value of R3 = %lx\n", pBaseStackFrame[3]);
-	printf("Value of R12 = %lx\n", pBaseStackFrame[4]);
-	printf("Value of LR = %lx\n", pBaseStackFrame[5]);
-	printf("Value of PC = %lx\n", pBaseStackFrame[6]);
-	printf("Value of XPSR = %lx\n", pBaseStackFrame[7]);
-	while(1);
+	printf("Extract Return Address(PC) = %ld\n", pBaseStackFrame[6]);
+  uint8_t *pReturn_addr = (uint8_t *)pBaseStackFrame[6];
+  /* Decrement thereturn address by 2 to point to opcode of the SVC 
+     instruction in the program memory */
+  pReturn_addr = pReturn_addr-2;
+  /* Extract the SVC number */
+  uint8_t svc_number = *pReturn_addr;
+	printf("Value of svc_number = %d\n", svc_number);
+  svc_number+=4;
+  /* Update register r0 as return value from SVC handler */
+  pBaseStackFrame[0] = svc_number;
 }
