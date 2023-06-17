@@ -14,62 +14,45 @@
 #include<stdio.h>
 #include<stdint.h>
 
-#define SRAM_START      0x20000000U
-#define SRAM_SIZE       (128 * 1024) /* SRAM size is 128K */
-#define SRAM_END        (SRAM_START + SRAM_SIZE)
-#define STACK_START     SRAM_END
-
-#define STACK_MSP_START STACK_START
-#define STACK_MSP_END   (STACK_MSP_START - 512) /* 512 bytes allocated to MSP */
-#define STACK_PSP_START STACK_MSP_END
-
-int fun_add(int a, int b , int c , int d)
-{
-	return a+b+c+d;
-}
-
-/* This function changes SP to PSP */
-__attribute__((naked)) void change_sp_to_psp(void)
-{
-  /* assign PSP address */
-  __asm volatile (".equ SRAM_END, (0x20000000+(128*1024))");
-  __asm volatile (".equ PSP_START, (SRAM_END-512)");
-  __asm volatile ("LDR R0, =PSP_START");
-  __asm volatile ("MSR PSP, R0");
-  __asm volatile ("MOV R0, #0x02");
-  __asm volatile ("MSR CONTROL, R0");
-  __asm volatile ("BX LR");
-}
-
-/* This function executes in THREAD MODE of the processor */
-void generate_exception()
-{
-	/* execute SVC instruction to cause SVC exception */
-	__asm volatile("SVC #0X2");
-
-}
-
+/* task handler function prototypes */
+void task1_handler(void); //This is task1
+void task2_handler(void); //this is task2
+void task3_handler(void); //this is task3
+void task4_handler(void); // this is task4 of the application
 /* This function executes in THREAD MODE of the processor */
 int main(void)
 {
-	change_sp_to_psp();
-  int ret;
-  ret = fun_add(1,3,34,5);
-  printf("results = %d\n", ret);
-	generate_exception();
-
 	for(;;);
 }
 
-/* This function(ISR) executes in HANDLER MODE of the processor */
-
-void SVC_Handler(void)
+void task1_handler(void)
 {
-	printf(" in SVC_Handler\n");
+	while(1)
+	{
+    printf("This is Task1\n");
+	}
 }
 
-void HardFault_Handler(void)
+void task2_handler(void)
 {
-	printf("Hard fault detected\n");
-	while(1);
+	while(1)
+	{
+    printf("This is Task2\n");
+	}
+}
+
+void task3_handler(void)
+{
+	while(1)
+	{
+    printf("This is Task3\n");
+	}
+}
+
+void task4_handler(void)
+{
+	while(1)
+	{
+    printf("This is Task4\n");
+	}
 }
