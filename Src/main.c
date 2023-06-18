@@ -229,7 +229,7 @@ __attribute__((naked)) void switch_sp_to_psp(void)
 	__asm volatile ("BX LR");
 }
 
-void  SysTick_Handler(void)
+__attribute__((naked)) void  SysTick_Handler(void)
 {
 
 	/*Save the context of current task */
