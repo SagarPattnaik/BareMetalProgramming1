@@ -26,4 +26,10 @@
 #define TICK_HZ                  1000U
 #define HSI_CLOCK         		16000000U
 #define SYSTICK_TIM_CLK   		HSI_CLOCK
+
+#define DUMMY_XPSR  0x01000000U
+
+#define TASK_READY_STATE  0x00
+#define TASK_BLOCKED_STATE  0XFF
+
 #endif /* MAIN_H_ */
