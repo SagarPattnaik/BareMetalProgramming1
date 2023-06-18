@@ -12,8 +12,8 @@
 #endif
 
 #include<stdio.h>
-#include<stdint.h>
 #include"main.h"
+#include "led.h"
 
 /* task handler function prototypes */
 void task1_handler(void); //This is task1
@@ -27,8 +27,16 @@ void init_tasks_stack(void);
 void enable_processor_faults(void);
 __attribute__((naked)) void switch_sp_to_psp(void);
 uint32_t get_psp_value(void);
+void task_delay(uint32_t tick_count);
+void save_psp_value(uint32_t current_psp_value);
+void update_next_task(void);
+void update_global_tick_count(void);
+
 /* This variable tracks the current_task being executed on the CPU */
 uint8_t current_task = 1; //task1 is running
+
+/* This variable gets updated from systick handler for every systick interrupt */
+uint32_t g_tick_count = 0;
 
 /* This is a task control block carries private information of each task */
 typedef struct
@@ -45,19 +53,35 @@ TCB_t user_tasks[MAX_TASKS];
 int main(void)
 {
 	enable_processor_faults();
-  init_scheduler_stack(SCHED_STACK_START);
+
+	init_scheduler_stack(SCHED_STACK_START);
+
 	init_tasks_stack();
-  init_systick_timer(TICK_HZ);
+
+	led_init_all();
+
+	init_systick_timer(TICK_HZ);
+
 	switch_sp_to_psp();
 	task1_handler();
   for(;;);
 }
 
+
+void idle_task(void)
+{
+	while(1);
+}
+
+
 void task1_handler(void)
 {
 	while(1)
 	{
-		printf("This is Task1\n");
+		led_on(LED_GREEN);
+		delay(DELAY_COUNT_1S);
+		led_off(LED_GREEN);
+		delay(DELAY_COUNT_1S);
 	}
 }
 
@@ -65,7 +89,10 @@ void task2_handler(void)
 {
 	while(1)
 	{
-		printf("This is Task2\n");
+		led_on(LED_ORANGE);
+		delay(DELAY_COUNT_500MS);
+		led_off(LED_ORANGE);
+		delay(DELAY_COUNT_500MS);
 	}
 }
 
@@ -73,7 +100,10 @@ void task3_handler(void)
 {
 	while(1)
 	{
-		printf("This is Task3\n");
+		led_on(LED_BLUE);
+		delay(DELAY_COUNT_250MS);
+		led_off(LED_BLUE);
+		delay(DELAY_COUNT_250MS);
 	}
 }
 
@@ -81,17 +111,15 @@ void task4_handler(void)
 {
 	while(1)
 	{
-		printf("This is Task4\n");
+		led_on(LED_RED);
+		delay(DELAY_COUNT_125MS);
+		led_off(LED_RED);
+		delay(DELAY_COUNT_125MS);
 	}
+
+
 }
 
-void idle_task(void)
-{
-	while(1)
-	{
-		printf("This is Ideal Task\n");
-	}
-}
 
 void init_systick_timer(uint32_t tick_hz)
 {
@@ -181,6 +209,10 @@ void update_next_task(void)
 	  current_task %= MAX_TASKS;
 }
 
+void update_global_tick_count(void)
+{
+	g_tick_count++;
+}
 __attribute__((naked)) void switch_sp_to_psp(void)
 {
   //1. initialize the PSP with TASK1 stack start address
@@ -229,6 +261,12 @@ void  SysTick_Handler(void)
 	__asm volatile("POP {LR}");
 
 	__asm volatile("BX LR");
+}
+
+void task_delay(uint32_t tick_count)
+{
+	user_tasks[current_task].block_count = g_tick_count + tick_count;
+	user_tasks[current_task].current_state = TASK_BLOCKED_STATE;
 }
 
 void HardFault_Handler(void)
