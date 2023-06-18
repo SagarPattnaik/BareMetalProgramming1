@@ -44,8 +44,12 @@ TCB_t user_tasks[MAX_TASKS];
 /* This function executes in THREAD MODE of the processor */
 int main(void)
 {
+	enable_processor_faults();
   init_scheduler_stack(SCHED_STACK_START);
+	init_tasks_stack();
   init_systick_timer(TICK_HZ);
+	switch_sp_to_psp();
+	task1_handler();
   for(;;);
 }
 
@@ -166,6 +170,17 @@ uint32_t get_psp_value(void)
 	return user_tasks[current_task].psp_value;
 }
 
+void save_psp_value(uint32_t current_psp_value)
+{
+	user_tasks[current_task].psp_value = current_psp_value;
+}
+
+void update_next_task(void)
+{
+		current_task++;
+	  current_task %= MAX_TASKS;
+}
+
 __attribute__((naked)) void switch_sp_to_psp(void)
 {
   //1. initialize the PSP with TASK1 stack start address
@@ -185,6 +200,35 @@ __attribute__((naked)) void switch_sp_to_psp(void)
 void  SysTick_Handler(void)
 {
 
+	/*Save the context of current task */
+
+	//1. Get current running task's PSP value
+	__asm volatile("MRS R0,PSP");
+	//2. Using that PSP value store SF2( R4 to R11)
+	__asm volatile("STMDB R0!,{R4-R11}");
+
+	__asm volatile("PUSH {LR}");
+
+	//3. Save the current value of PSP
+    __asm volatile("BL save_psp_value");
+
+	/*Retrieve the context of next task */
+
+	//1. Decide next task to run
+    __asm volatile("BL update_next_task");
+
+	//2. get its past PSP value
+	__asm volatile ("BL get_psp_value");
+
+	//3. Using that PSP value retrieve SF2(R4 to R11)
+	__asm volatile ("LDMIA R0!,{R4-R11}");
+
+	//4. update PSP and exit
+	__asm volatile("MSR PSP,R0");
+
+	__asm volatile("POP {LR}");
+
+	__asm volatile("BX LR");
 }
 
 void HardFault_Handler(void)
